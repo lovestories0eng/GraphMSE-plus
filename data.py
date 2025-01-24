@@ -63,9 +63,9 @@ class HeteData():
 
         with open(label_path, 'rb') as f:
             labels = pkl.load(f)
-        self.train_list = np.array(labels[0], dtype=np.int64)
-        self.val_list = np.array(labels[1], dtype=np.int64)
-        self.test_list = np.array(labels[2], dtype=np.int64)
+        self.train_list = np.array(labels[0], dtype=np.int)
+        self.val_list = np.array(labels[1], dtype=np.int)
+        self.test_list = np.array(labels[2], dtype=np.int)
 
     def get_dict_of_list(self):
         result = []
