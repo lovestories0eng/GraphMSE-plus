@@ -30,6 +30,7 @@ class HeteData():
         with open(feature_path, 'rb') as f:
             self.x = pkl.load(f)
         self.hete_graph = []
+        # 循环加载 4 个异构图（edge_0 到 edge_3），每个图是一个有向图（nx.DiGraph），节点类型为整数（nodetype=int）。
         for i in range(4):
             self.hete_graph.append(
                 nx.read_edgelist(self.path + "/edge_" + str(i), create_using=nx.DiGraph(), nodetype=int))
@@ -40,6 +41,12 @@ class HeteData():
         if self.dataset == "DBLP":
             self.node_dict = {"P": 0, "C": 1, "A": 2}
             self.edge_type = {0: "PA", 1: "AP", 2: "PC", 3: "CP"}
+            '''
+                PA 之后只能是 AP
+                AP 之后只能是 PA PC
+                PC 之后只能是 CP
+                CP 之后只能是 PA PC
+            '''
             self.next_type = {0: [1], 1: [0, 2], 2: [3], 3: [0, 2]}
         if self.dataset == "IMDB":
             self.node_dict = {"D": 0, "A": 1, "M": 2}
