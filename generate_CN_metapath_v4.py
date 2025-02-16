@@ -143,9 +143,9 @@ if __name__ == "__main__":
     num_authors = len(graph_list['Author'])
     num_venues = len(graph_list['Venue'])
 
-    selected_papers = random.sample(list(graph_list['Paper'].keys()), int(0.01 * num_papers))
-    selected_authors = random.sample(list(graph_list['Author'].keys()), int(0.01 * num_authors))
-    selected_venues = random.sample(list(graph_list['Venue'].keys()), int(0.01 * num_venues))
+    selected_papers = random.sample(list(graph_list['Paper'].keys()), int(0.001 * num_papers))
+    selected_authors = random.sample(list(graph_list['Author'].keys()), int(0.001 * num_authors))
+    selected_venues = random.sample(list(graph_list['Venue'].keys()), int(0.001 * num_venues))
 
     # 提取元路径实例和标签
     paper_results = extract_metapath_instances(graph_list, selected_papers, metapaths)
