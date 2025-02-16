@@ -19,27 +19,67 @@ def enum_longest_metapath_index(name_dict, type_dict, length):
     return hop
 
 
-def enum_all_metapath(name_dict, type_dict, length):
-    hop = []
+# def enum_all_metapath(name_dict, type_dict, length):
+#     hop = []
+#     path_list = []
+#     for type in type_dict.keys():
+#         hop.append([type])
+#     path_list.extend(hop)
+#     for i in range(length - 2):
+#         new_hop = []
+#         for path in hop:
+#             for next_type in type_dict[path[-1]]:
+#                 new_hop.append(path + [next_type])
+#         hop = new_hop
+#         path_list.extend(hop)
+#     path_dict = {}
+#     for path in path_list:
+#         name = name_dict[path[0]][0]
+#         for index in path:
+#             name += name_dict[index][1]
+#         path_dict[name] = path
+#     return path_dict
+def enum_all_metapath(name_dict, type_dict, max_length):
+    """
+    枚举所有可能的元路径模式，限制最小长度为 2，最大长度为 max_length。
+    :param name_dict: 每种类型节点的缩写名
+    :param type_dict: 每种类型节点的可能邻居类型
+    :param max_length: 元路径的最大长度
+    :return: 所有可能的元路径模式 (name -> 类型序列)
+    """
+    all_metapaths = {}  # 存储所有元路径模式
+
+    # 初始化路径，至少包含两跳（长度为2）
     path_list = []
-    for type in type_dict.keys():
-        hop.append([type])
-    path_list.extend(hop)
-    for i in range(length - 2):
-        new_hop = []
-        for path in hop:
-            for next_type in type_dict[path[-1]]:
-                new_hop.append(path + [next_type])
-        hop = new_hop
-        path_list.extend(hop)
-    path_dict = {}
+    for start_type, neighbors in type_dict.items():
+        for neighbor in neighbors:
+            path_list.append([start_type, neighbor])  # 生成初始长度为2的路径
+
+    # 将初始路径保存为元路径模式
     for path in path_list:
         name = name_dict[path[0]][0]
-        for index in path:
-            name += name_dict[index][1]
-        path_dict[name] = path
-    return path_dict
+        for node_type in path[1:]:
+            name += name_dict[node_type][1]
+        all_metapaths[name] = path
 
+    # 逐步扩展路径至最大长度
+    for _ in range(max_length - 2):
+        new_path_list = []
+        for path in path_list:
+            last_type = path[-1]  # 当前路径的最后一个节点类型
+            for next_type in type_dict[last_type]:  # 根据 type_dict 找到下一跳的可能类型
+                new_path = path + [next_type]
+                new_path_list.append(new_path)
+
+                # 构造元路径名并保存
+                name = name_dict[new_path[0]][0]
+                for node_type in new_path[1:]:
+                    name += name_dict[node_type][1]
+                all_metapaths[name] = new_path
+
+        path_list = new_path_list  # 更新路径列表，继续扩展
+
+    return all_metapaths
 
 def enum_metapath_name(name_dict, type_dict, length):
     # 枚举所有可能的metapath名字
@@ -67,40 +107,85 @@ def enum_metapath_name(name_dict, type_dict, length):
     return result_dict
 
 
+# def search_all_path(graph_list, src_node, name_list, metapath_list, metapath_name, path_single_limit=None):
+#     path_dict = {}
+#     for path in metapath_list:
+#         path_dict.update(search_single_path(graph_list, src_node, name_list, path, metapath_name, path_single_limit))
+#     return path_dict
 def search_all_path(graph_list, src_node, name_list, metapath_list, metapath_name, path_single_limit=None):
+    """
+    为一个起始节点和元路径列表搜索所有路径。
+    """
     path_dict = {}
-    for path in metapath_list:
-        path_dict.update(search_single_path(graph_list, src_node, name_list, path, metapath_name, path_single_limit))
+    for type_sequence in metapath_list:  # 遍历元路径模式
+        path_dict.update(
+            search_single_path(
+                graph_list,
+                src_node=src_node,
+                name_list=name_list,
+                type_sequence=type_sequence,
+                metapath_name=metapath_name,
+                path_single_limit=path_single_limit,
+            )
+        )
     return path_dict
 
 
+# def search_single_path(graph_list, src_node, name_list, type_sequence, metapath_name, path_single_limit):
+#     '''
+#     :param src_nodes: center_node
+#     :param path_nums: the num of meta_path per node
+#     :param type_sequence: edge-type sequence without head node
+#     :return: meta-path list, the n-th element is the n-hop meta-path list.
+#     '''
+#     if src_node not in graph_list[type_sequence[0]] or len(graph_list[type_sequence[0]][src_node]) == 0:
+#         return {}
+#     path_result = [[[src_node]]]
+#     hop = len(type_sequence)
+#     # 执行邻接矩阵BFS搜索
+#     for l in range(hop):
+#         path_result.append([])
+#         for list in path_result[l]:
+#             path_result[l + 1].extend(list_appender(list, graph_list, type_sequence[l], path_single_limit))
+#     # 将搜索结果做量的限制，然后按Metapath名字保存下来
+#     path_dict = {}
+#     fullname = metapath_name[type_sequence[0]][0]
+#     path_dict[fullname[0]] = path_result[0]
+#     for i in type_sequence:
+#         fullname += metapath_name[i][1]
+#     for i in range(len(fullname)):
+#         if len(path_result[i]) != 0 and fullname[0:i + 1] in name_list[fullname[0]]:
+#             path_dict[fullname[0:i + 1]] = path_result[i]
 
-def search_single_path(graph_list, src_node, name_list, type_sequence, metapath_name, path_single_limit):
-    '''
-    :param src_nodes: center_node
-    :param path_nums: the num of meta_path per node
-    :param type_sequence: edge-type sequence without head node
-    :return: meta-path list, the n-th element is the n-hop meta-path list.
-    '''
-    if src_node not in graph_list[type_sequence[0]] or len(graph_list[type_sequence[0]][src_node]) == 0:
-        return {}
-    path_result = [[[src_node]]]
-    hop = len(type_sequence)
-    # 执行邻接矩阵BFS搜索
-    for l in range(hop):
-        path_result.append([])
-        for list in path_result[l]:
-            path_result[l + 1].extend(list_appender(list, graph_list, type_sequence[l], path_single_limit))
-    # 将搜索结果做量的限制，然后按Metapath名字保存下来
+#     return path_dict
+
+def search_single_path(graph_list, src_node, name_list, type_sequence, metapath_name, path_single_limit=None):
+    """
+    从给定节点出发，搜索满足元路径的所有路径。
+    """
     path_dict = {}
-    fullname = metapath_name[type_sequence[0]][0]
-    path_dict[fullname[0]] = path_result[0]
-    for i in type_sequence:
-        fullname += metapath_name[i][1]
-    for i in range(len(fullname)):
-        if len(path_result[i]) != 0 and fullname[0:i + 1] in name_list[fullname[0]]:
-            path_dict[fullname[0:i + 1]] = path_result[i]
 
+    def dfs(current_node, current_path, depth):
+        if depth == len(type_sequence):  # 到达目标深度
+            path_key = tuple(current_path)  # 使用元组作为路径的唯一标识
+            if path_key in path_dict:
+                path_dict[path_key] += 1  # 路径计数
+            else:
+                path_dict[path_key] = 1
+            return
+
+        current_type = type_sequence[depth]  # 当前路径需要匹配的节点类型
+        if current_node not in graph_list[current_type]:  # 无法继续扩展路径
+            return
+
+        neighbors = graph_list[current_type][current_node]
+        for neighbor in neighbors:
+            if path_single_limit and len(path_dict) >= path_single_limit:
+                break  # 达到限制数量时终止
+            dfs(neighbor, current_path + [neighbor], depth + 1)
+
+    # 初始化 DFS
+    dfs(src_node, [src_node], 1)
     return path_dict
 
 
@@ -130,7 +215,7 @@ def index_to_features(path_dict, x, select_method="all_node"):
             result_dict[name] = x[None, path_dict[name][0][0], :]
             result_dict['src_type'] = name
             continue
-        np_index = np.array(path_dict[name], dtype=np.int64)
+        np_index = np.array(path_dict[name], dtype=np.int)
         if select_method == "end_node":
                 np_x = np.empty([np_index.shape[0], x.shape[1]])
                 np_x[:, 0:x.shape[1]] = x[np_index[:, -1], :]
