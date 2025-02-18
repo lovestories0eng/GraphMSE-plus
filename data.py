@@ -6,7 +6,6 @@ import torch
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn.decomposition import PCA
 
-
 class HeteData():
     def __init__(self, data_root="data", dataset="DBLP", train_percent=None, shuffle=False):
         """
@@ -22,6 +21,7 @@ class HeteData():
             print("Dataset root: {}".format(self.path))
         else:
             raise FileNotFoundError
+        # 加载特征
         if shuffle == False:
             feature_path = self.path + '/node_features.pkl'
         else:
@@ -29,6 +29,7 @@ class HeteData():
             feature_path = self.path + '/shuffled_features.pkl'
         with open(feature_path, 'rb') as f:
             self.x = pkl.load(f)
+        
         self.hete_graph = []
         # 循环加载 4 个异构图（edge_0 到 edge_3），每个图是一个有向图（nx.DiGraph），节点类型为整数（nodetype=int）。
         for i in range(4):
@@ -60,6 +61,7 @@ class HeteData():
         with open(self.path + '/node_type', 'rb') as f:
             self.node_type = pkl.load(f)
 
+        # edgelist 文件将所有边都视作同种类型 19645 + 14328 = 33973
         self.homo_graph = nx.read_edgelist(self.path + "/edgelist", nodetype=int)
         label_path = self.path + '/labels'
         if train_percent != None:
@@ -70,12 +72,14 @@ class HeteData():
 
         with open(label_path, 'rb') as f:
             labels = pkl.load(f)
+        # 训练集、验证集、测试集
         self.train_list = np.array(labels[0], dtype=np.int64)
         self.val_list = np.array(labels[1], dtype=np.int64)
         self.test_list = np.array(labels[2], dtype=np.int64)
 
     def get_dict_of_list(self):
         result = []
+        # 返回各个类型边的邻接链表
         for g in self.hete_graph:
             result.append(nx.to_dict_of_lists(g))
         return result
@@ -85,6 +89,3 @@ class HeteData():
 
     def get_metapath_name(self):
         return self.edge_type
-
-
-

@@ -10,6 +10,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 from model import GraphMSE
 from model import Discriminator
 from data import HeteData
+import sys
 
 
 def node_search_wrapper(index):
@@ -26,8 +27,17 @@ def train(model, epochs, method="all_node", ablation="all"):
     start_select = 50
     train_index = train_list[:, 0].tolist()
     print("Loading dataset with thread pool...")
+    '''
+      pool.map:
+        批量提交任务：将一个可迭代对象（如列表）中的每个元素作为参数，提交给任务函数。
+    '''
+
+    print('train_metapath train_features')
+
     train_metapath = pool.map(node_search_wrapper, train_index)
     train_features = pool.map(index_to_feature_wrapper, train_metapath)
+    # print(len(train_index), len(train_metapath), len(train_features)) # 469 469 469
+
     val_index = val_list[:, 0].tolist()
     val_label = val_list[:, 1]
     val_metapath = pool.map(node_search_wrapper, val_index)
@@ -86,16 +96,18 @@ def train(model, epochs, method="all_node", ablation="all"):
             batch_train_feature_dict, batch_src_index_dict, batch_src_label_dict, batch_train_rows_dict = mp.combine_features_dict(
                 batch_feature_list,
                 batch_src_index,
-                batch_src_label, DEVICE)
+                batch_src_label, 
+                DEVICE
+            )
 
             optimizer.zero_grad()
             for type in d_optimizer:
                 d_optimizer[type].zero_grad()
             if e >= start_select:
+                # 调用 GraphMSE 类的 forward 函数
                 batch_train_logits_dict, GAN_input = model(batch_train_rows_dict, batch_train_feature_dict, True)
             else:
-                batch_train_logits_dict, GAN_input = model(batch_train_rows_dict, batch_train_feature_dict,
-                                                           False)  # 获取模型的输出
+                batch_train_logits_dict, GAN_input = model(batch_train_rows_dict, batch_train_feature_dict, False)  # 获取模型的输出
 
             for type in batch_train_logits_dict:
                 Loss_Classification = criterion(batch_train_logits_dict[type], batch_src_label_dict[type])
@@ -126,6 +138,7 @@ def train(model, epochs, method="all_node", ablation="all"):
                 d_optimizer[type].step()
             optimizer.step()
 
+        # start_select: 判断添加 attnGNN 后的效果
         if e >= start_select and select_flag == False:
             select_flag = True
             pretrain_convergence = time2 - time1
@@ -242,7 +255,7 @@ if __name__ == '__main__':
     shuffle = False
     metapath_length = 4
     mlp_settings = {'layer_list': [256], 'dropout_list': [0.5], 'activation': 'sigmoid'}
-    info_section = 40  # total embedding dim = info_section *3 = 120
+    info_section = 40  # total embedding dim = info_section * 3 = 120
     learning_rate = 0.01  #
     select_method = "all_node"  # Only used in end-node study
     single_path_limit = 5  # lambda = 5
@@ -251,24 +264,32 @@ if __name__ == '__main__':
     num_batch_per_epoch = 5  # 每个epoch循环的批次数
     batch_size = train_percent // 20 * 96
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    # DEVICE = "cpu"
     data = HeteData(dataset=dataset, train_percent=train_percent, shuffle=shuffle)
     graph_list = data.get_dict_of_list()
+    # 得到同构图的邻接链表
     homo_graph = nx.to_dict_of_lists(data.homo_graph)
+    # 节点特征的维度作为 input_dim
     input_dim = data.x.shape[1]
 
     pre_embed_dim = data.type_num * info_section
-    output_dim = max(data.train_list[:, 1].tolist()) + 1  # 隐藏单元节点数  两层
+    # 输出维度为节点的类型数量
+    output_dim = max(data.train_list[:, 1].tolist()) + 1
 
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # 获取预处理数据
+    # DEVICE = "cpu"
 
     assert select_method in ["end_node", "all_node"]
 
+    # 节点特征
     x = data.x
     train_list = data.train_list  # 训练节点/数据对应的标签
     test_list = data.test_list  # 测试节点/数据对应的索引
     val_list = data.val_list  # 验证节点/数据对应的索引
+    # 自动将模型输出的 raw scores（未归一化的分数）通过 Softmax 转换为概率，然后计算这些概率和目标标签之间的损失
     criterion = nn.CrossEntropyLoss().to(DEVICE)
 
+    # 并发地执行多个任务
     num_thread = 12
     pool = ThreadPool(num_thread)
 
