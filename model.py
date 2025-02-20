@@ -153,6 +153,9 @@ class GraphMSE(nn.Module):
                 nn.Linear(2 * pre_embed_dim, 1, bias=False),
                 nn.LeakyReLU(0.1),
             )
+        
+        print('debug')
+
 
     def mlp_activation(self, type):
         if type == 'sigmoid':
@@ -218,6 +221,7 @@ class GraphMSE(nn.Module):
 
             embed = torch.stack(list(injective[type].values()), dim=2).mean(dim=2)
             # 这里还是把 center_node 加上了
+            tmp = center_node[type] + embed
             pre_embed[type] = self.classify_layer(center_node[type] + embed)
         return pre_embed, GAN_input
 

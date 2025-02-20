@@ -9,7 +9,7 @@
       "type": "debugpy",
       "request": "launch",
       "program": "${file}",
-      "pythonPath": "/mnt/HDD1/psh24/anaconda3/envs/py38/bin/python", // 替换为你的 Conda 虚拟环境路径
+      "pythonPath": "/mnt/HDD1/psh24/anaconda3/envs/py39/bin/python", // 替换为你的 Conda 虚拟环境路径
       "console": "integratedTerminal"
     }
   ]

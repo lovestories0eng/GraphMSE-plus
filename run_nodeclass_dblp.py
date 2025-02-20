@@ -4,7 +4,7 @@ import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 import networkx as nx
-import metapath as mp
+import metapath as type_list
 import sklearn.metrics as sm
 import time
 from multiprocessing.dummy import Pool as ThreadPool
@@ -15,7 +15,7 @@ from data import HeteData
 
 # 调用metapath.search_all_path来搜索指定节点的所有元路径。它从graph_list中获取与给定节点关联的元路径。
 def node_search_wrapper(index):
-    return mp.search_all_path(graph_list, index, metapath_name, metapath_list, data.get_metapath_name(),
+    return type_list.search_all_path(graph_list, index, metapath_name, metapath_list, data.get_metapath_name(),
                               single_path_limit)
 
 
@@ -24,7 +24,7 @@ def train(model, epochs, method="all_node", ablation="all"):
 
 
     def index_to_feature_wrapper(dict):
-        return mp.index_to_features(dict, data.x, method)
+        return type_list.index_to_features(dict, data.x, method)
 
     start_select = 50
     train_index = train_list[:, 0].tolist()
@@ -86,7 +86,7 @@ def train(model, epochs, method="all_node", ablation="all"):
             batch_src_index = train_list[batch_src_choice, 0]
             batch_src_label = train_list[batch_src_choice, 1]
             batch_feature_list = [train_features[i] for i in batch_src_choice]
-            batch_train_feature_dict, batch_src_index_dict, batch_src_label_dict, batch_train_rows_dict = mp.combine_features_dict(
+            batch_train_feature_dict, batch_src_index_dict, batch_src_label_dict, batch_train_rows_dict = type_list.combine_features_dict(
                 batch_feature_list,
                 batch_src_index,
                 batch_src_label, DEVICE)
@@ -168,7 +168,7 @@ def train(model, epochs, method="all_node", ablation="all"):
 
 
 def val(model, val_features, val_index, val_label, start_select=False):
-    val_feature_dict, val_index_dict, val_label_dict, val_rows_dict = mp.combine_features_dict(val_features,
+    val_feature_dict, val_index_dict, val_label_dict, val_rows_dict = type_list.combine_features_dict(val_features,
                                                                                                val_index, val_label,
                                                                                                DEVICE)
     model.eval()  # 测试模型
@@ -190,7 +190,7 @@ def test(model, batch_size=200, test_method="best_val"):
     model.load_state_dict(torch.load("checkpoint/" + dataset +  "_" + test_method))
 
     def index_to_feature_wrapper(dict):
-        return mp.index_to_features(dict, data.x)
+        return type_list.index_to_features(dict, data.x)
 
     test_index = test_list[:, 0].tolist()
     print("Loading dataset with thread pool...")
@@ -213,7 +213,7 @@ def test(model, batch_size=200, test_method="best_val"):
             batch_test_label = test_list[batch:end, 1]
             batch_feature_list = [test_features[i] for i in range(batch, end)]
 
-            batch_test_feature_dict, batch_test_index_dict, batch_test_label_dict, batch_test_rows_dict = mp.combine_features_dict(
+            batch_test_feature_dict, batch_test_index_dict, batch_test_label_dict, batch_test_rows_dict = type_list.combine_features_dict(
                 batch_feature_list,
                 batch_test_index,
                 batch_test_label, DEVICE)
@@ -281,8 +281,8 @@ if __name__ == '__main__':
     pool = ThreadPool(num_thread)
 
     # 此处枚举metapath并初始化选择模型
-    metapath_name = mp.enum_metapath_name(data.get_metapath_name(), data.get_metapath_dict(), metapath_length)
-    metapath_list = mp.enum_longest_metapath_index(data.get_metapath_name(), data.get_metapath_dict(), metapath_length)
+    metapath_name = type_list.enum_metapath_name(data.get_metapath_name(), data.get_metapath_dict(), metapath_length)
+    metapath_list = type_list.enum_longest_metapath_index(data.get_metapath_name(), data.get_metapath_dict(), metapath_length)
 
     select_model = GraphMSE(metapath_list=metapath_name, input_dim=input_dim, pre_embed_dim=pre_embed_dim,
                             select_dim=output_dim, mlp_settings=mlp_settings).to(DEVICE)

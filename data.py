@@ -77,6 +77,11 @@ class HeteData():
         self.val_list = np.array(labels[1], dtype=np.int64)
         self.test_list = np.array(labels[2], dtype=np.int64)
 
+        self.labels = []
+        self.labels.extend(self.train_list)
+        self.labels.extend(self.val_list)
+        self.labels.extend(self.test_list)
+
     def get_dict_of_list(self):
         result = []
         # 返回各个类型边的邻接链表

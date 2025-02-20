@@ -20,31 +20,46 @@ def node_search_wrapper(index):
 def index_to_feature_wrapper(dict):
     return type_list.index_to_features(dict, data.x)
 
-def train(model, features_train, labels_train, types_train, features_val, labels_val, types_val, epochs=100):
+def combine_dict(batch_feature, batch_type):
+    length = len(batch_feature)
+    features = {}
+    for i in range(length):
+        if batch_type[i] not in features:
+            features[batch_type[i]] = []
+        features[batch_type[i]].append(batch_feature[i])
+    
+    return features
+
+
+def train(
+        model, 
+        metapath_index_dict,
+        epochs=100
+    ):
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     best_val_loss = float('inf')
     best_model_state = None
 
-    # 将 features_train 和 types_train 列表转换为 numpy.ndarray
-    features_train = np.array(features_train)
-    types_train = np.array(types_train)
-
     for epoch in range(epochs):
         model.train()
         total_loss = 0
-        for batch in range(num_batch_per_epoch):
+        for _ in range(num_batch_per_epoch):
+            batch_choice = np.random.choice(len(train_list), batch_size)
+            batch_feature = [train_list[i][0] for i in batch_choice]
+            batch_type = [train_list[i][1] for i in batch_choice]
+
+            features_train_dict = combine_dict(batch_feature, batch_type)
+
             optimizer.zero_grad()
-            outputs = model(torch.tensor(features_train).to(DEVICE), torch.tensor(types_train).to(DEVICE))
-            loss = criterion(outputs, torch.tensor(labels_train).to(DEVICE))
+            outputs, metapath_label = model(features_train_dict, metapath_index_dict)
+            loss = criterion(outputs, torch.tensor(metapath_label).to(DEVICE))
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
 
-        avg_loss = total_loss / num_batch_per_epoch
-
         # 验证模型
-        val_loss, val_accuracy = val(model, features_val, labels_val, types_val)
+        val_loss, val_accuracy = val(model, features_val_dict, metapath_index_dict)
         print(f'Epoch {epoch+1}/{epochs}, Loss: {loss.item()}, Val Loss: {val_loss}, Val Accuracy: {val_accuracy}')
 
         # 保存最佳模型
@@ -58,24 +73,24 @@ def train(model, features_train, labels_train, types_train, features_val, labels
 
     return model
 
-def val(model, features, labels, types):
+def val(model, features, metapath_index_dict):
     model.eval()
     with torch.no_grad():
-        outputs = model(torch.tensor(features).to(DEVICE), torch.tensor(types).to(DEVICE))
-        loss = criterion(outputs, torch.tensor(labels).to(DEVICE))
+        outputs, metapath_labels = model(features, metapath_index_dict)
+        loss = criterion(outputs, torch.tensor(metapath_labels).to(DEVICE))
         preds = torch.argmax(outputs, dim=1)
-        accuracy = (preds == torch.tensor(labels).to(DEVICE)).float().mean().item()
+        accuracy = (preds == torch.tensor(metapath_labels).to(DEVICE)).float().mean().item()
 
     return loss.item(), accuracy
 
-def test(model, features, labels, types):
+def test(model, features, metapath_index_dict):
     model.eval()
     with torch.no_grad():
-        outputs = model(torch.tensor(features).to(DEVICE), torch.tensor(types).to(DEVICE))
-        loss = criterion(outputs, torch.tensor(labels).to(DEVICE))
+        outputs, metapath_label = model(features, metapath_index_dict)
+        loss = criterion(outputs, torch.tensor(metapath_label).to(DEVICE))
         preds = torch.argmax(outputs, dim=1)
-        accuracy = (preds == torch.tensor(labels).to(DEVICE)).float().mean().item()
-        f1_score = sm.f1_score(labels, preds.cpu(), average='macro')
+        accuracy = (preds == torch.tensor(metapath_label).to(DEVICE)).float().mean().item()
+        f1_score = sm.f1_score(metapath_label, preds.cpu(), average='macro')
 
     return loss.item(), accuracy, f1_score
     
@@ -83,8 +98,14 @@ def test(model, features, labels, types):
 dataset = "IMDB"
 train_percent = None  # 20, 40, 60, 80
 metapath_length = 4
-mlp_settings = {'layer_list': [256, 128], 'dropout_list': [0.3, 0.3], 'activation': 'sigmoid'}
-single_path_limit = 10
+mlp_settings = {'layer_list': [64], 'dropout_list': [0.3], 'activation': 'sigmoid'}
+single_path_limit = 3
+batch_size = 8
+# 学习率
+learning_rate = 0.01 
+# 每个 epoch 循环的批次数
+num_batch_per_epoch = 1
+num_epochs = 20
 
 data = HeteData(dataset=dataset, train_percent=train_percent)
 graph_list = data.get_dict_of_list()
@@ -109,9 +130,9 @@ pool = ThreadPool(num_thread)
 metapath = pool.map(node_search_wrapper, range(data.x.shape[0]))
 features = pool.map(index_to_feature_wrapper, metapath)
 
-# {key: metapath name, value: matapath}
+# {key: metapath name, value: metapath}
 type_list = {}
-# {key: metapath name, value: matapath feature}
+# {key: metapath name, value: metapath feature}
 type_feature = {}
 
 for node_dict in metapath:
@@ -126,19 +147,17 @@ for node_dict in features:
             type_feature[metapath_name] = []
         type_feature[metapath_name].extend(metapath_feature)
 
-metapath_type = list(type_list.keys())
+metapath_types = list(type_list.keys())
 
-features_train = []
-features_val = []
-features_test = []
+train_list = []
+val_list = []
+test_list = []
 
-metapath_index_train = []
-metapath_index_val = []
-metapath_index_test = []
+features_train_dict = {}
+features_val_dict  = {}
+features_test_dict  = {}
 
-metapath_type_train = []
-metapath_type_val = []
-metapath_type_test = []
+metapath_index_dict  = {}
 
 metapath_cnt = 0
 for metapath_type in type_list:
@@ -148,45 +167,32 @@ for metapath_type in type_list:
     
     cur_feature = type_feature[metapath_type]
 
-    # 把 cur_feature 分成 6:2:2
-    features_train.extend(cur_feature[:int(len(cur_feature) * 0.6)])
-    features_val.extend(cur_feature[int(len(cur_feature) * 0.6):int(len(cur_feature) * 0.8)])
-    features_test.extend(cur_feature[int(len(cur_feature) * 0.8):])
+    # 训练集、验证集、测试集分成 7:1:2
 
-    metapath_index_train.extend([metapath_cnt] * int(len(cur_feature) * 0.6))
-    metapath_index_val.extend([metapath_cnt] * (int(len(cur_feature) * 0.8) - int(len(cur_feature) * 0.6)))
-    metapath_index_test.extend([metapath_cnt] * (len(cur_feature) - int(len(cur_feature) * 0.8)))
+    features_train_dict[metapath_type] = cur_feature[:int(len(cur_feature) * 0.7)]
+    features_val_dict[metapath_type] = cur_feature[int(len(cur_feature) * 0.7):int(len(cur_feature) * 0.8)]
+    features_test_dict[metapath_type] = cur_feature[int(len(cur_feature) * 0.8):]
 
-    metapath_type_train.extend([metapath_cnt] * int(len(cur_feature) * 0.6))
-    metapath_type_val.extend([metapath_cnt] * (int(len(cur_feature) * 0.8) - int(len(cur_feature) * 0.6)))
-    metapath_type_test.extend([metapath_cnt] * (len(cur_feature) - int(len(cur_feature) * 0.8)))
+    train_list.extend([metapath_feature, metapath_type] for metapath_feature in features_train_dict[metapath_type])
+    val_list.extend([metapath_feature, metapath_type] for metapath_feature in features_val_dict[metapath_type])
+    test_list.extend([metapath_feature, metapath_type] for metapath_feature in features_test_dict[metapath_type])
+
+    metapath_index_dict[metapath_type] = metapath_cnt
 
     metapath_cnt += 1
 
-# 学习率
-learning_rate = 0.01 
-# 每个 epoch 循环的批次数
-num_batch_per_epoch = 5
-num_epochs = 100
-
 # 调用训练函数
-model = MetapathClassifier(metapath_type, node_embedding_dim, metapath_cnt, mlp_settings).to(DEVICE)
+model = MetapathClassifier(metapath_types, node_embedding_dim, metapath_cnt, mlp_settings).to(DEVICE)
 trained_model = train(
-    model, 
-    features_train, 
-    metapath_index_train,
-    metapath_type_train,
-    features_val, 
-    metapath_index_val, 
-    metapath_type_val,
+    model,
+    metapath_index_dict,
     epochs=num_epochs
 )
 
 # 调用测试函数
 test_loss, test_accuracy, test_f1_score = test(
-    trained_model, 
-    features_test, 
-    metapath_index_test,
-    metapath_type_test
+    trained_model,
+    features_test_dict,
+    metapath_index_dict
 )
 print(f'Test Loss: {test_loss}, Test Accuracy: {test_accuracy}, Test F1 Score: {test_f1_score}')

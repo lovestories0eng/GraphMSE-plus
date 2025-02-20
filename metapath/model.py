@@ -1,8 +1,11 @@
+import numpy as np
 import torch
 import torch.nn as nn
 
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
 class MetapathClassifier(nn.Module):
-    def __init__(self, metapath_type, node_embedding_dim, output_dim, mlp_settings):
+    def __init__(self, metapath_types, node_embedding_dim, output_dim, mlp_settings):
         super(MetapathClassifier, self).__init__()
         assert 'layer_list' in mlp_settings.keys()
         assert 'dropout_list' in mlp_settings.keys()
@@ -10,16 +13,16 @@ class MetapathClassifier(nn.Module):
         assert mlp_settings['activation'] in ['sigmoid', 'relu', 'tanh']
 
         # 元路径列表
-        self.metapath_type = metapath_type
+        self.metapath_types = metapath_types
         self.node_embedding_dim = node_embedding_dim
         self.output_dim = output_dim
         self.metapath_mlp = nn.ModuleDict()
         self.mlp_settings = mlp_settings
 
-        for metapath in metapath_type:
+        for metapath in metapath_types:
             self.metapath_mlp[metapath] = self.build_mlp(len(metapath) * node_embedding_dim, output_dim)
 
-        self.classify_layer = nn.Linear(output_dim, len(metapath_type))
+        self.classify_layer = nn.Linear(output_dim, len(metapath_types))
 
     def build_mlp(self, input_dim, output_dim):
         layers = []
@@ -46,12 +49,18 @@ class MetapathClassifier(nn.Module):
         else:
             raise ValueError(f"Unsupported activation type: {activation_type}")
 
-    def forward(self, metapath_embeddings, metapath_type_list):
+    def forward(self, metapath_feature_dict, metapath_index_dict):
         metapath_outputs = []
+        metapath_labels = []
 
-        for i in range(len(metapath_embeddings)):
-            metapath_output = self.metapath_mlp[metapath_type_list[i]](metapath_embeddings[i])
-            metapath_outputs.append(metapath_output)
+        for metapath_type, metapath_features in metapath_feature_dict.items():
+            for metapath_feature in metapath_features:
+                # metapath_output = self.metapath_mlp[metapath_type](metapath_feature)
+                metapath_feature_tensor = torch.tensor(metapath_feature, dtype=torch.float32).to(DEVICE)
+                metapath_output = self.metapath_mlp[metapath_type](metapath_feature_tensor)
+                metapath_outputs.append(metapath_output)
+                metapath_labels.append(metapath_index_dict[metapath_type])
+
             
-        DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # 获取预处理数据
-        return self.classify_layer(torch.tensor(metapath_outputs).to(DEVICE))
+        metapath_outputs_tensor = torch.stack(metapath_outputs).to(DEVICE)
+        return self.classify_layer(metapath_outputs_tensor), metapath_labels

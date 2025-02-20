@@ -79,3 +79,5 @@ You can get a 3D-PCA view like this:
 
 
 # pip install torch torchvision torchaudio -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
