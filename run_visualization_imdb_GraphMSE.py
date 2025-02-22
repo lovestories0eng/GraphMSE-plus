@@ -281,7 +281,7 @@ if __name__ == '__main__':
     shuffle = False
     metapath_length = 4
     mlp_settings = {'layer_list': [256], 'dropout_list': [0.5], 'activation': 'sigmoid'}
-    info_section = 40  # total embedding dim = info_section *3 = 120
+    info_section = 40  # total embedding dim = info_section * 3 = 120
     learning_rate = 0.01  #
     select_method = "all_node"  # Only used in end-node study
     single_path_limit = 5  # lambda = 5

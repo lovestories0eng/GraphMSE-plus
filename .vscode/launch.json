@@ -9,6 +9,14 @@
       "type": "debugpy",
       "request": "launch",
       "program": "${file}",
+      "args": [
+        "--dataset",
+        "IMDB",
+        "--sample_times",
+        "4096",
+        "--sample_num",
+        "128"
+      ],
       "pythonPath": "/mnt/HDD1/psh24/anaconda3/envs/py39/bin/python", // 替换为你的 Conda 虚拟环境路径
       "console": "integratedTerminal"
     }

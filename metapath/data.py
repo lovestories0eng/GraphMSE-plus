@@ -32,6 +32,7 @@ class HeteData():
         # 加载特征
         if shuffle == False:
             feature_path = self.path + '/node_features.pkl'
+            # feature_path = self.path + '/generated_features.pkl'
         else:
             print("Shuffled feature loaded.")
             feature_path = self.path + '/shuffled_features.pkl'

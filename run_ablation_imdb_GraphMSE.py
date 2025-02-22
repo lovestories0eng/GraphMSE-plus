@@ -282,8 +282,11 @@ if __name__ == '__main__':
 
     # 节点特征
     x = data.x
+    # 469 
     train_list = data.train_list  # 训练节点/数据对应的标签
+    # 4702
     test_list = data.test_list  # 测试节点/数据对应的索引
+    # 236
     val_list = data.val_list  # 验证节点/数据对应的索引
     # 自动将模型输出的 raw scores（未归一化的分数）通过 Softmax 转换为概率，然后计算这些概率和目标标签之间的损失
     criterion = nn.CrossEntropyLoss().to(DEVICE)

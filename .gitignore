@@ -4,3 +4,5 @@ checkpoint/
 __pycache__/
 *.pdf
 *.png
+*.pth
+*.log
