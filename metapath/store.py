@@ -29,7 +29,7 @@ class GlobalStore:
             self.sample_times = 0
             self.sample_num = 0
 
-            self.DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+            self.DEVICE = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
             self.metapath_embedding_store = metapath_embedding_store
             self.metapath_cnt = metapath_cnt
 

@@ -1,5 +1,6 @@
 data/
 result/
+metapath/result/
 checkpoint/
 __pycache__/
 *.pdf
