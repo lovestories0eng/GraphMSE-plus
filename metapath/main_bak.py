@@ -384,7 +384,7 @@ if __name__ == "__main__":
 
 
     DownstreamModel = MetapathClassifier(metapath_types, mlp_settings, node_embedding_dim, metapath_embeddings, embedding_labels, False).to(DEVICE)
-    DownstreamModelConcat = MetapathClassifier(metapath_types, mlp_settings, node_embedding_dim, metapath_embeddings, embedding_labels, True).to(DEVICE)
+    DownstreamModelUseEmbedding = MetapathClassifier(metapath_types, mlp_settings, node_embedding_dim, metapath_embeddings, embedding_labels, True).to(DEVICE)
 
     [train_data, test_data] = data_split([0.7, 1], downstream_type_feature)
     downstream_batch_size = metapath_cnt * 1
@@ -401,7 +401,7 @@ if __name__ == "__main__":
 
     print('Testing [...metapath instance feature, ...metapath embedding]')
     downstram_task(
-        DownstreamModelConcat,
+        DownstreamModelUseEmbedding,
         train_data,
         test_data,
         metapath_index_dict,

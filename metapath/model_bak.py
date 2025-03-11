@@ -131,7 +131,7 @@ class MetapathClassifier(nn.Module):
         node_embedding_dim, 
         metapath_embeddings, 
         embedding_labels, 
-        concat=False
+        use_embedding=False
     ):
         super(MetapathClassifier, self).__init__()
 
@@ -140,32 +140,32 @@ class MetapathClassifier(nn.Module):
         self.node_embedding_dim = node_embedding_dim
         self.metapath_embeddings = metapath_embeddings
         self.embedding_labels = embedding_labels
-        self.concat = concat
+        self.use_embedding = use_embedding
 
         self.metapath_mlps = nn.ModuleDict()
         self.embedding_dim = (self.metapath_embeddings[0]).shape[0]
-
-        if concat:
-            pre_embed_dim = self.embedding_dim * 2
-        else:
-            self.generated_metapath_embeddings = torch.rand(len(self.metapath_types), self.embedding_dim).to(DEVICE)
-
-            pre_embed_dim = self.embedding_dim * 2
-
-        type_num = len(self.embedding_labels)
 
         metapath_len_min = min(len(s) for s in metapath_types)
         metapath_len_max = max(len(s) for s in metapath_types)
 
         for metapath_len in range(metapath_len_min, metapath_len_max + 1):
-
             self.metapath_mlps[str(metapath_len)] = nn.Sequential(
                 nn.Linear(metapath_len * node_embedding_dim, self.embedding_dim),
                 nn.Sigmoid()
             )
+
+        # instance embedding, metapath embedding fusion
+        self.fusion_layer = nn.Linear(self.embedding_dim, self.embedding_dim)
+
+        # Initialize the learnable attention weights
+        self.attn = nn.Parameter(torch.randn(2)).to(DEVICE)  # random initialization
+
             
         # [metapath instance embedding, metapath embedding]
-        self.classify_layer = nn.Linear(pre_embed_dim, type_num)
+        self.classify_layer = nn.Linear(self.embedding_dim, len(self.embedding_labels))
+
+        self.generated_metapath_embeddings = torch.rand(len(self.metapath_types), self.embedding_dim).to(DEVICE)
+        nn.init.xavier_uniform_(self.generated_metapath_embeddings)
 
     def forward(self, metapath_features_dict, metapath_index_dict):
         metapath_outputs = []
@@ -179,19 +179,22 @@ class MetapathClassifier(nn.Module):
             
             cur_label = metapath_index_dict[metapath_type]
             cur_num = len(metapath_features)
-            if (self.concat):
-                index = self.embedding_labels.index(cur_label)
+
+            index = self.embedding_labels.index(cur_label)
+            if (self.use_embedding):
                 cur_metapath_embedding = self.metapath_embeddings[index].detach()
                 metapath_embedding_expanded = cur_metapath_embedding.unsqueeze(0).expand(cur_num, -1)
-                metapath_outputs_tensor = torch.cat([metapath_outputs_tensor, metapath_embedding_expanded], dim=1)
-            
             else:
-                index = self.embedding_labels.index(cur_label)
                 cur_metapath_embedding = self.generated_metapath_embeddings[index]
                 metapath_embedding_expanded = cur_metapath_embedding.unsqueeze(0).expand(cur_num, -1)
-                metapath_outputs_tensor = torch.cat([metapath_outputs_tensor, metapath_embedding_expanded], dim=1)
 
-            metapath_outputs.extend(metapath_outputs_tensor)
+            attn_weights = torch.softmax(self.attn, dim=0)
+
+            metapath_outputs_tensor = attn_weights[0] * metapath_outputs_tensor
+            metapath_embedding_expanded = attn_weights[1] * metapath_embedding_expanded
+            fused_outputs = self.fusion_layer(metapath_outputs_tensor + metapath_embedding_expanded)
+
+            metapath_outputs.extend(fused_outputs)
             metapath_labels.extend([cur_label] * cur_num)
 
         metapath_outputs = torch.stack(metapath_outputs).to(DEVICE)
